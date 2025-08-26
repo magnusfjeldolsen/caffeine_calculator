@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caffeine Calculator</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Caffeine Calculator</h1>
+            <p>Track your caffeine intake and see how it metabolizes over time</p>
+        </header>
+
+        <div class="main-content">
+            <div class="controls">
+                <div class="half-life-control">
+                    <label for="metabolismRate">Metabolism Rate:</label>
+                    <select id="metabolismRate">
+                        <option value="custom">Custom (hours)</option>
+                        <option value="3.5">Quick (3.5 hours half-life)</option>
+                        <option value="5" selected>Standard (5 hours half-life)</option>
+                        <option value="9">Slow (9 hours half-life - pregnancy/meds)</option>
+                    </select>
+                    <input type="number" id="customHalfLife" placeholder="hours" min="0.5" max="20" step="0.5" style="display:none;">
+                </div>
+
+                <div class="intake-section">
+                    <h3>Caffeine Intakes</h3>
+                    <div id="intakes-container">
+                        <div class="intake-row" data-id="0">
+                            <div class="time-input">
+                                <label>Time:</label>
+                                <input type="time" class="time-field" value="08:00">
+                            </div>
+                            
+                            <div class="drink-input">
+                                <label>Drink:</label>
+                                <select class="drink-select">
+                                    <option value="custom">Custom (mg/100ml)</option>
+                                    <option value="20">Green Tea (20mg/100ml)</option>
+                                    <option value="30">Black Tea (30mg/100ml)</option>
+                                    <option value="32">Cola (32mg/100ml)</option>
+                                    <option value="40" selected>Filtered Coffee (40mg/100ml)</option>
+                                    <option value="80">Energy Drink (80mg/100ml)</option>
+                                    <option value="212">Espresso (212mg/100ml)</option>
+                                </select>
+                                <input type="number" class="custom-caffeine" placeholder="mg/100ml" min="0" style="display:none;">
+                            </div>
+
+                            <div class="amount-input">
+                                <label>Amount:</label>
+                                <select class="amount-select">
+                                    <option value="custom">Custom (ml)</option>
+                                    <option value="30">Espresso shot (30ml)</option>
+                                    <option value="200" selected>Small mug (200ml)</option>
+                                    <option value="250">Cup (250ml)</option>
+                                    <option value="330">Can (330ml)</option>
+                                    <option value="350">Large mug (350ml)</option>
+                                    <option value="500">Bottle (500ml)</option>
+                                </select>
+                                <input type="number" class="custom-amount" placeholder="ml" min="0" style="display:none;">
+                            </div>
+
+                            <div class="calculated-caffeine">
+                                <span class="caffeine-amount">0 mg</span>
+                            </div>
+
+                            <button class="duplicate-intake">⧉</button>
+                            <button class="remove-intake" style="display:none;">×</button>
+                        </div>
+                    </div>
+                    
+                    <button id="add-intake" class="add-btn">+ Add Caffeine Intake</button>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div id="chart"></div>
+                <div id="tooltip" class="tooltip"></div>
+            </div>
+        </div>
+
+        <div class="formula-note">
+            <p><strong>Note:</strong> This graph is created using the exponential decay half-life formula to calculate accumulated caffeine levels throughout the day. Each caffeine intake decays independently according to: <em>remaining = initial × e^(-λt)</em>, where λ = ln(2)/half-life.</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
