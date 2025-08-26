@@ -738,7 +738,15 @@ class CaffeineCalculator {
         const index = bisect(data, time, 1);
         const d0 = data[index - 1];
         const d1 = data[index];
-        const d = time - d0.time > d1.time - time ? d1 : d0;
+        
+        // Handle edge cases
+        let d;
+        if (!d0) d = d1;
+        else if (!d1) d = d0;
+        else d = time - d0.time > d1.time - time ? d1 : d0;
+
+        // Only update if we have valid data
+        if (!d) return;
 
         // Update hover elements
         hoverLine
@@ -751,12 +759,13 @@ class CaffeineCalculator {
             .attr('cy', yScale(d.caffeine))
             .style('opacity', 1);
 
-        // Update tooltip
+        // Update tooltip - use simple mouse coordinates
         const tooltip = d3.select('#tooltip');
+        
         tooltip
             .style('opacity', 1)
-            .style('left', (event.pageX + 10) + 'px')
-            .style('top', (event.pageY - 10) + 'px')
+            .style('left', (event.clientX + 10) + 'px')
+            .style('top', (event.clientY - 40) + 'px')
             .html(`
                 <strong>Time:</strong> ${this.formatHour(d.time)}<br>
                 <strong>Caffeine:</strong> ${Math.round(d.caffeine)} mg
