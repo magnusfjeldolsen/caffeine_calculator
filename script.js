@@ -5,6 +5,7 @@ class CaffeineCalculator {
     }
 
     init() {
+        this.loadFromStorage();
         this.setupEventListeners();
         this.updateChart();
     }
@@ -22,16 +23,23 @@ class CaffeineCalculator {
                 customHalfLife.style.display = 'none';
             }
             this.updateChart();
+            this.saveToStorage();
         });
 
         // Custom half-life input change
         customHalfLife.addEventListener('input', () => {
             this.updateChart();
+            this.saveToStorage();
         });
 
         // Add intake button
         document.getElementById('add-intake').addEventListener('click', () => {
             this.addIntakeRow();
+        });
+
+        // Clear all button
+        document.getElementById('clear-all').addEventListener('click', () => {
+            this.clearAll();
         });
 
         // Initial intake row setup
@@ -94,6 +102,200 @@ class CaffeineCalculator {
         this.setupIntakeRow(newRow);
         this.intakeCounter++;
         this.updateChart();
+        this.saveToStorage();
+    }
+
+    clearAll() {
+        if (confirm('Are you sure you want to clear all caffeine intakes?')) {
+            // Reset to single row with default values
+            const container = document.getElementById('intakes-container');
+            container.innerHTML = `
+                <div class="intake-row" data-id="0">
+                    <div class="time-input">
+                        <label>Time:</label>
+                        <input type="time" class="time-field" value="08:00">
+                    </div>
+                    
+                    <div class="drink-input">
+                        <label>Drink:</label>
+                        <select class="drink-select">
+                            <option value="custom">Custom (mg/100ml)</option>
+                            <option value="20">Green Tea (20mg/100ml)</option>
+                            <option value="30">Black Tea (30mg/100ml)</option>
+                            <option value="32">Cola (32mg/100ml)</option>
+                            <option value="40" selected>Filtered Coffee (40mg/100ml)</option>
+                            <option value="80">Energy Drink (80mg/100ml)</option>
+                            <option value="212">Espresso (212mg/100ml)</option>
+                        </select>
+                        <input type="number" class="custom-caffeine" placeholder="mg/100ml" min="0" style="display:none;">
+                    </div>
+
+                    <div class="amount-input">
+                        <label>Amount:</label>
+                        <select class="amount-select">
+                            <option value="custom">Custom (ml)</option>
+                            <option value="30">Espresso shot (30ml)</option>
+                            <option value="200" selected>Small mug (200ml)</option>
+                            <option value="250">Cup (250ml)</option>
+                            <option value="330">Can (330ml)</option>
+                            <option value="350">Large mug (350ml)</option>
+                            <option value="500">Bottle (500ml)</option>
+                        </select>
+                        <input type="number" class="custom-amount" placeholder="ml" min="0" style="display:none;">
+                    </div>
+
+                    <div class="calculated-caffeine">
+                        <span class="caffeine-amount">0 mg</span>
+                    </div>
+
+                    <button class="duplicate-intake">⧉</button>
+                    <button class="remove-intake" style="display:none;">×</button>
+                </div>
+            `;
+            
+            // Reset counter and metabolism rate
+            this.intakeCounter = 1;
+            document.getElementById('metabolismRate').value = '5';
+            document.getElementById('customHalfLife').style.display = 'none';
+            
+            // Setup the new row
+            this.setupIntakeRow(document.querySelector('.intake-row'));
+            this.updateChart();
+            this.saveToStorage();
+        }
+    }
+
+    saveToStorage() {
+        const data = {
+            metabolismRate: document.getElementById('metabolismRate').value,
+            customHalfLife: document.getElementById('customHalfLife').value,
+            intakes: this.getIntakeStorageData(),
+            intakeCounter: this.intakeCounter
+        };
+        localStorage.setItem('caffeineCalculatorData', JSON.stringify(data));
+    }
+
+    loadFromStorage() {
+        const saved = localStorage.getItem('caffeineCalculatorData');
+        if (saved) {
+            try {
+                const data = JSON.parse(saved);
+                
+                // Restore metabolism rate
+                document.getElementById('metabolismRate').value = data.metabolismRate || '5';
+                if (data.metabolismRate === 'custom') {
+                    document.getElementById('customHalfLife').style.display = 'block';
+                    document.getElementById('customHalfLife').value = data.customHalfLife || '';
+                }
+                
+                // Restore intake counter
+                this.intakeCounter = data.intakeCounter || 1;
+                
+                // Restore intakes
+                if (data.intakes && data.intakes.length > 0) {
+                    this.restoreIntakes(data.intakes);
+                }
+            } catch (e) {
+                console.error('Error loading saved data:', e);
+            }
+        }
+    }
+
+    getIntakeStorageData() {
+        const rows = document.querySelectorAll('.intake-row');
+        const intakes = [];
+        
+        rows.forEach(row => {
+            const timeField = row.querySelector('.time-field');
+            const drinkSelect = row.querySelector('.drink-select');
+            const customCaffeine = row.querySelector('.custom-caffeine');
+            const amountSelect = row.querySelector('.amount-select');
+            const customAmount = row.querySelector('.custom-amount');
+            
+            intakes.push({
+                time: timeField.value,
+                drinkValue: drinkSelect.value,
+                customCaffeineValue: customCaffeine.value,
+                amountValue: amountSelect.value,
+                customAmountValue: customAmount.value
+            });
+        });
+        
+        return intakes;
+    }
+
+    restoreIntakes(intakes) {
+        const container = document.getElementById('intakes-container');
+        container.innerHTML = '';
+        
+        intakes.forEach((intake, index) => {
+            const row = document.createElement('div');
+            row.className = 'intake-row';
+            row.setAttribute('data-id', index);
+            
+            row.innerHTML = `
+                <div class="time-input">
+                    <label>Time:</label>
+                    <input type="time" class="time-field" value="${intake.time}">
+                </div>
+                
+                <div class="drink-input">
+                    <label>Drink:</label>
+                    <select class="drink-select">
+                        <option value="custom">Custom (mg/100ml)</option>
+                        <option value="20">Green Tea (20mg/100ml)</option>
+                        <option value="30">Black Tea (30mg/100ml)</option>
+                        <option value="32">Cola (32mg/100ml)</option>
+                        <option value="40">Filtered Coffee (40mg/100ml)</option>
+                        <option value="80">Energy Drink (80mg/100ml)</option>
+                        <option value="212">Espresso (212mg/100ml)</option>
+                    </select>
+                    <input type="number" class="custom-caffeine" placeholder="mg/100ml" min="0" style="display:none;" value="${intake.customCaffeineValue}">
+                </div>
+
+                <div class="amount-input">
+                    <label>Amount:</label>
+                    <select class="amount-select">
+                        <option value="custom">Custom (ml)</option>
+                        <option value="30">Espresso shot (30ml)</option>
+                        <option value="200">Small mug (200ml)</option>
+                        <option value="250">Cup (250ml)</option>
+                        <option value="330">Can (330ml)</option>
+                        <option value="350">Large mug (350ml)</option>
+                        <option value="500">Bottle (500ml)</option>
+                    </select>
+                    <input type="number" class="custom-amount" placeholder="ml" min="0" style="display:none;" value="${intake.customAmountValue}">
+                </div>
+
+                <div class="calculated-caffeine">
+                    <span class="caffeine-amount">0 mg</span>
+                </div>
+
+                <button class="duplicate-intake">⧉</button>
+                <button class="remove-intake"${intakes.length === 1 ? ' style="display:none;"' : ''}>×</button>
+            `;
+            
+            container.appendChild(row);
+            
+            // Set select values
+            const drinkSelect = row.querySelector('.drink-select');
+            const amountSelect = row.querySelector('.amount-select');
+            const customCaffeine = row.querySelector('.custom-caffeine');
+            const customAmount = row.querySelector('.custom-amount');
+            
+            drinkSelect.value = intake.drinkValue;
+            amountSelect.value = intake.amountValue;
+            
+            // Show custom inputs if needed
+            if (intake.drinkValue === 'custom') {
+                customCaffeine.style.display = 'block';
+            }
+            if (intake.amountValue === 'custom') {
+                customAmount.style.display = 'block';
+            }
+            
+            this.setupIntakeRow(row);
+        });
     }
 
     setupIntakeRow(row) {
@@ -114,6 +316,7 @@ class CaffeineCalculator {
                 customCaffeine.style.display = 'none';
             }
             this.calculateCaffeine(row);
+            this.saveToStorage();
         });
 
         amountSelect.addEventListener('change', () => {
@@ -124,12 +327,14 @@ class CaffeineCalculator {
                 customAmount.style.display = 'none';
             }
             this.calculateCaffeine(row);
+            this.saveToStorage();
         });
 
         // Update calculations on input changes
         [customCaffeine, customAmount, timeField].forEach(input => {
             input.addEventListener('input', () => {
                 this.calculateCaffeine(row);
+                this.saveToStorage();
             });
         });
 
@@ -146,6 +351,7 @@ class CaffeineCalculator {
                 row.remove();
                 this.updateChart();
                 this.updateRemoveButtons();
+                this.saveToStorage();
             });
         }
 
