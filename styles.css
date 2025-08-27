@@ -134,7 +134,7 @@ header p {
 }
 
 .start-date-control input {
-    width: 100%;
+    width: 200px;
     padding: 12px 15px;
     border: 2px solid rgba(139, 69, 19, 0.2);
     border-radius: 12px;

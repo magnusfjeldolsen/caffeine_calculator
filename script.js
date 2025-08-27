@@ -27,15 +27,55 @@ class CaffeineCalculator {
         const rows = document.querySelectorAll('.intake-row');
         if (rows.length === 0) return;
         
-        // First row always gets the start date
-        const firstRow = rows[0];
-        const firstDateField = firstRow.querySelector('.date-field');
-        if (firstDateField) {
-            firstDateField.value = startDate;
+        // If there's only one row or it's the initial setup, just set it to start date
+        if (rows.length === 1 || !rows[0].querySelector('.date-field').value) {
+            const firstRow = rows[0];
+            const firstDateField = firstRow.querySelector('.date-field');
+            if (firstDateField) {
+                firstDateField.value = startDate;
+            }
+            this.updateSequentialDates();
+            return;
         }
         
-        // Subsequent rows follow the timeline based on their times
-        this.updateSequentialDates();
+        // Calculate each intake's offset from the first intake in hours (before modifying anything)
+        const firstRow = rows[0];
+        const firstDateField = firstRow.querySelector('.date-field');
+        const firstTimeField = firstRow.querySelector('.time-field');
+        const originalFirstDateTime = new Date(`${firstDateField.value}T${firstTimeField.value}:00`);
+        
+        // Calculate all offsets first
+        const intakeOffsets = [];
+        rows.forEach(row => {
+            const dateField = row.querySelector('.date-field');
+            const timeField = row.querySelector('.time-field');
+            
+            if (dateField && dateField.value && timeField && timeField.value) {
+                const currentIntakeDateTime = new Date(`${dateField.value}T${timeField.value}:00`);
+                const hoursOffset = (currentIntakeDateTime - originalFirstDateTime) / (1000 * 60 * 60);
+                intakeOffsets.push(hoursOffset);
+            } else {
+                intakeOffsets.push(0);
+            }
+        });
+        
+        // Now apply the new start date + offsets to all intakes
+        const newStartDate = new Date(startDate);
+        const [firstHours, firstMinutes] = firstTimeField.value.split(':').map(Number);
+        
+        rows.forEach((row, index) => {
+            const dateField = row.querySelector('.date-field');
+            
+            if (dateField) {
+                // Calculate new datetime based on new start date + this intake's offset
+                const newIntakeDateTime = new Date(newStartDate);
+                newIntakeDateTime.setHours(firstHours, firstMinutes, 0, 0);
+                newIntakeDateTime.setTime(newIntakeDateTime.getTime() + intakeOffsets[index] * 60 * 60 * 1000);
+                
+                // Update the date field
+                dateField.value = newIntakeDateTime.toISOString().split('T')[0];
+            }
+        });
     }
 
     updateSequentialDates() {
@@ -117,8 +157,15 @@ class CaffeineCalculator {
             this.clearAll();
         });
 
-        // Initial intake row setup
-        this.setupIntakeRow(document.querySelector('.intake-row'));
+        // Setup any existing intake rows (in case nothing was loaded from storage)
+        const existingRows = document.querySelectorAll('.intake-row');
+        existingRows.forEach(row => {
+            // Only set up if not already set up (check if it has event listeners)
+            if (!row.hasAttribute('data-setup')) {
+                this.setupIntakeRow(row);
+                row.setAttribute('data-setup', 'true');
+            }
+        });
     }
 
     addIntakeRow() {
@@ -255,7 +302,8 @@ class CaffeineCalculator {
             document.getElementById('customHalfLife').style.display = 'none';
             
             // Setup the new row
-            this.setupIntakeRow(document.querySelector('.intake-row'));
+            const newRow = document.querySelector('.intake-row');
+            this.setupIntakeRow(newRow);
             this.updateIntakeDates(); // Set the date for the new row
             this.updateChart();
             this.saveToStorage();
@@ -484,6 +532,9 @@ class CaffeineCalculator {
         // Initial calculation
         this.calculateCaffeine(row);
         this.updateRemoveButtons();
+        
+        // Mark as set up to prevent double setup
+        row.setAttribute('data-setup', 'true');
     }
 
     duplicateIntake(sourceRow) {
