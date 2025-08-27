@@ -719,17 +719,42 @@ class CaffeineCalculator {
         const hoverCircle = g.append('circle')
             .attr('class', 'hover-circle');
 
+        // Fixed info box at top right
+        const infoBox = g.append('g')
+            .attr('class', 'info-box')
+            .style('opacity', 0);
+
+        const infoBoxRect = infoBox.append('rect')
+            .attr('class', 'info-box-rect')
+            .attr('x', width - 200)
+            .attr('y', 10)
+            .attr('width', 190)
+            .attr('height', 50)
+            .attr('rx', 6)
+            .attr('ry', 6)
+            .attr('fill', 'rgba(0, 0, 0, 0.8)')
+            .attr('stroke', 'rgba(255, 255, 255, 0.2)')
+            .attr('stroke-width', 1);
+
+        const infoBoxText = infoBox.append('text')
+            .attr('class', 'info-box-text')
+            .attr('x', width - 105)
+            .attr('y', 30)
+            .attr('text-anchor', 'middle')
+            .attr('fill', 'white')
+            .attr('font-size', '14px');
+
         // Invisible rect for mouse events
         g.append('rect')
             .attr('width', width)
             .attr('height', height)
             .attr('fill', 'none')
             .attr('pointer-events', 'all')
-            .on('mousemove', (event) => this.handleMouseMove(event, data, xScale, yScale, hoverLine, hoverCircle))
-            .on('mouseout', () => this.handleMouseOut(hoverLine, hoverCircle));
+            .on('mousemove', (event) => this.handleMouseMove(event, data, xScale, yScale, hoverLine, hoverCircle, infoBox, infoBoxText))
+            .on('mouseout', () => this.handleMouseOut(hoverLine, hoverCircle, infoBox));
     }
 
-    handleMouseMove(event, data, xScale, yScale, hoverLine, hoverCircle) {
+    handleMouseMove(event, data, xScale, yScale, hoverLine, hoverCircle, infoBox, infoBoxText) {
         const [mouseX] = d3.pointer(event);
         const time = xScale.invert(mouseX);
         
@@ -759,23 +784,15 @@ class CaffeineCalculator {
             .attr('cy', yScale(d.caffeine))
             .style('opacity', 1);
 
-        // Update tooltip - use simple mouse coordinates
-        const tooltip = d3.select('#tooltip');
-        
-        tooltip
-            .style('opacity', 1)
-            .style('left', (event.clientX + 10) + 'px')
-            .style('top', (event.clientY - 40) + 'px')
-            .html(`
-                <strong>Time:</strong> ${this.formatHour(d.time)}<br>
-                <strong>Caffeine:</strong> ${Math.round(d.caffeine)} mg
-            `);
+        // Update fixed info box at top right
+        infoBoxText.text(`${this.formatHour(d.time)} • ${Math.round(d.caffeine)} mg`);
+        infoBox.style('opacity', 1);
     }
 
-    handleMouseOut(hoverLine, hoverCircle) {
+    handleMouseOut(hoverLine, hoverCircle, infoBox) {
         hoverLine.style('opacity', 0);
         hoverCircle.style('opacity', 0);
-        d3.select('#tooltip').style('opacity', 0);
+        infoBox.style('opacity', 0);
     }
 }
 
