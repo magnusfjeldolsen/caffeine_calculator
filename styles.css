@@ -118,9 +118,43 @@ header p {
     font-weight: 500;
 }
 
+.start-date-control {
+    margin-bottom: 25px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid rgba(139, 69, 19, 0.1);
+}
+
+.start-date-control label {
+    display: block;
+    font-family: 'Fredoka', cursive;
+    font-weight: 500;
+    margin-bottom: 12px;
+    color: #6d4c2c;
+    font-size: 1.1em;
+}
+
+.start-date-control input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid rgba(139, 69, 19, 0.2);
+    border-radius: 12px;
+    font-size: 16px;
+    font-family: 'Comfortaa', cursive;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.8);
+    color: #3e2723;
+}
+
+.start-date-control input:focus {
+    outline: none;
+    border-color: #8b4513;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.1);
+}
+
 .intake-row {
     display: grid;
-    grid-template-columns: 1fr 2.5fr 2.5fr 1.5fr auto auto;
+    grid-template-columns: 1.5fr 1fr 2.5fr 2.5fr 1.5fr auto auto;
     gap: 20px;
     align-items: end;
     margin-bottom: 20px;

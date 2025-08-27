@@ -5,9 +5,76 @@ class CaffeineCalculator {
     }
 
     init() {
+        this.setDefaultStartDate();
         this.loadFromStorage();
         this.setupEventListeners();
         this.updateChart();
+    }
+
+    setDefaultStartDate() {
+        const startDateInput = document.getElementById('startDate');
+        if (!startDateInput.value) {
+            const today = new Date();
+            startDateInput.value = today.toISOString().split('T')[0];
+        }
+        this.updateIntakeDates();
+    }
+
+    updateIntakeDates() {
+        const startDate = document.getElementById('startDate').value;
+        if (!startDate) return;
+        
+        const rows = document.querySelectorAll('.intake-row');
+        if (rows.length === 0) return;
+        
+        // First row always gets the start date
+        const firstRow = rows[0];
+        const firstDateField = firstRow.querySelector('.date-field');
+        if (firstDateField) {
+            firstDateField.value = startDate;
+        }
+        
+        // Subsequent rows follow the timeline based on their times
+        this.updateSequentialDates();
+    }
+
+    updateSequentialDates() {
+        const rows = document.querySelectorAll('.intake-row');
+        if (rows.length <= 1) return;
+        
+        const startDate = document.getElementById('startDate').value;
+        if (!startDate) return;
+        
+        let currentDate = new Date(startDate);
+        let previousTime = null;
+        
+        rows.forEach((row, index) => {
+            const dateField = row.querySelector('.date-field');
+            const timeField = row.querySelector('.time-field');
+            
+            if (index === 0) {
+                // First row keeps start date
+                dateField.value = startDate;
+                if (timeField.value) {
+                    const [hours, minutes] = timeField.value.split(':').map(Number);
+                    previousTime = hours * 60 + minutes; // Convert to minutes
+                }
+                return;
+            }
+            
+            if (timeField.value && previousTime !== null) {
+                const [hours, minutes] = timeField.value.split(':').map(Number);
+                const currentTimeMinutes = hours * 60 + minutes;
+                
+                // If current time is earlier than previous time, it's the next day
+                if (currentTimeMinutes <= previousTime) {
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+                
+                dateField.value = currentDate.toISOString().split('T')[0];
+                previousTime = currentTimeMinutes;
+            }
+        });
     }
 
     setupEventListeners() {
@@ -32,6 +99,14 @@ class CaffeineCalculator {
             this.saveToStorage();
         });
 
+        // Start date change
+        const startDate = document.getElementById('startDate');
+        startDate.addEventListener('change', () => {
+            this.updateIntakeDates();
+            this.updateChart();
+            this.saveToStorage();
+        });
+
         // Add intake button
         document.getElementById('add-intake').addEventListener('click', () => {
             this.addIntakeRow();
@@ -52,11 +127,26 @@ class CaffeineCalculator {
         newRow.className = 'intake-row';
         newRow.setAttribute('data-id', this.intakeCounter);
         
-        const currentTime = new Date();
-        currentTime.setHours(currentTime.getHours() + this.intakeCounter);
-        const timeString = currentTime.toTimeString().slice(0, 5);
+        // Calculate time based on previous intake + 1 hour
+        const existingRows = container.querySelectorAll('.intake-row');
+        let timeString = '08:00'; // Default fallback
+        
+        if (existingRows.length > 0) {
+            const lastRow = existingRows[existingRows.length - 1];
+            const lastTimeField = lastRow.querySelector('.time-field');
+            if (lastTimeField && lastTimeField.value) {
+                const [hours, minutes] = lastTimeField.value.split(':').map(Number);
+                const newHours = (hours + 1) % 24;
+                timeString = `${newHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+            }
+        }
 
         newRow.innerHTML = `
+            <div class="date-input">
+                <label>Date:</label>
+                <input type="date" class="date-field">
+            </div>
+            
             <div class="time-input">
                 <label>Time:</label>
                 <input type="time" class="time-field" value="${timeString}">
@@ -101,6 +191,7 @@ class CaffeineCalculator {
         container.appendChild(newRow);
         this.setupIntakeRow(newRow);
         this.intakeCounter++;
+        this.updateSequentialDates(); // Set the date for the new row based on timeline
         this.updateChart();
         this.saveToStorage();
     }
@@ -111,6 +202,11 @@ class CaffeineCalculator {
             const container = document.getElementById('intakes-container');
             container.innerHTML = `
                 <div class="intake-row" data-id="0">
+                    <div class="date-input">
+                        <label>Date:</label>
+                        <input type="date" class="date-field">
+                    </div>
+                    
                     <div class="time-input">
                         <label>Time:</label>
                         <input type="time" class="time-field" value="08:00">
@@ -160,6 +256,7 @@ class CaffeineCalculator {
             
             // Setup the new row
             this.setupIntakeRow(document.querySelector('.intake-row'));
+            this.updateIntakeDates(); // Set the date for the new row
             this.updateChart();
             this.saveToStorage();
         }
@@ -169,6 +266,7 @@ class CaffeineCalculator {
         const data = {
             metabolismRate: document.getElementById('metabolismRate').value,
             customHalfLife: document.getElementById('customHalfLife').value,
+            startDate: document.getElementById('startDate').value,
             intakes: this.getIntakeStorageData(),
             intakeCounter: this.intakeCounter
         };
@@ -186,6 +284,11 @@ class CaffeineCalculator {
                 if (data.metabolismRate === 'custom') {
                     document.getElementById('customHalfLife').style.display = 'block';
                     document.getElementById('customHalfLife').value = data.customHalfLife || '';
+                }
+                
+                // Restore start date
+                if (data.startDate) {
+                    document.getElementById('startDate').value = data.startDate;
                 }
                 
                 // Restore intake counter
@@ -206,6 +309,7 @@ class CaffeineCalculator {
         const intakes = [];
         
         rows.forEach(row => {
+            const dateField = row.querySelector('.date-field');
             const timeField = row.querySelector('.time-field');
             const drinkSelect = row.querySelector('.drink-select');
             const customCaffeine = row.querySelector('.custom-caffeine');
@@ -213,6 +317,7 @@ class CaffeineCalculator {
             const customAmount = row.querySelector('.custom-amount');
             
             intakes.push({
+                date: dateField.value,
                 time: timeField.value,
                 drinkValue: drinkSelect.value,
                 customCaffeineValue: customCaffeine.value,
@@ -234,6 +339,11 @@ class CaffeineCalculator {
             row.setAttribute('data-id', index);
             
             row.innerHTML = `
+                <div class="date-input">
+                    <label>Date:</label>
+                    <input type="date" class="date-field" value="${intake.date || ''}">
+                </div>
+                
                 <div class="time-input">
                     <label>Time:</label>
                     <input type="time" class="time-field" value="${intake.time}">
@@ -299,6 +409,7 @@ class CaffeineCalculator {
     }
 
     setupIntakeRow(row) {
+        const dateField = row.querySelector('.date-field');
         const drinkSelect = row.querySelector('.drink-select');
         const customCaffeine = row.querySelector('.custom-caffeine');
         const amountSelect = row.querySelector('.amount-select');
@@ -331,12 +442,27 @@ class CaffeineCalculator {
         });
 
         // Update calculations on input changes
-        [customCaffeine, customAmount, timeField].forEach(input => {
+        [customCaffeine, customAmount].forEach(input => {
             input.addEventListener('input', () => {
                 this.calculateCaffeine(row);
                 this.saveToStorage();
             });
         });
+
+        // Time field changes should also update sequential dates
+        timeField.addEventListener('input', () => {
+            this.updateSequentialDates();
+            this.calculateCaffeine(row); // This already calls updateChart
+            this.saveToStorage();
+        });
+
+        // Date field changes should also update chart
+        if (dateField) {
+            dateField.addEventListener('input', () => {
+                this.updateChart();
+                this.saveToStorage();
+            });
+        }
 
         // Duplicate intake row
         if (duplicateBtn) {
@@ -349,8 +475,8 @@ class CaffeineCalculator {
         if (removeBtn) {
             removeBtn.addEventListener('click', () => {
                 row.remove();
-                this.updateChart();
                 this.updateRemoveButtons();
+                this.updateChart();
                 this.saveToStorage();
             });
         }
@@ -379,6 +505,11 @@ class CaffeineCalculator {
         const newTime = `${newHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 
         newRow.innerHTML = `
+            <div class="date-input">
+                <label>Date:</label>
+                <input type="date" class="date-field">
+            </div>
+            
             <div class="time-input">
                 <label>Time:</label>
                 <input type="time" class="time-field" value="${newTime}">
@@ -442,6 +573,7 @@ class CaffeineCalculator {
 
         this.setupIntakeRow(newRow);
         this.intakeCounter++;
+        this.updateSequentialDates();
         this.updateChart();
     }
 
@@ -487,64 +619,66 @@ class CaffeineCalculator {
         const intakes = [];
 
         rows.forEach(row => {
+            const dateField = row.querySelector('.date-field');
             const timeField = row.querySelector('.time-field');
             const caffeineAmount = row.querySelector('.caffeine-amount');
             
+            const date = dateField.value;
             const time = timeField.value;
             const caffeine = parseInt(caffeineAmount.textContent) || 0;
 
-            if (time && caffeine > 0) {
+            if (date && time && caffeine > 0) {
                 intakes.push({
+                    date: date,
                     time: time,
-                    caffeine: caffeine
+                    caffeine: caffeine,
+                    datetime: new Date(`${date}T${time}:00`)
                 });
             }
         });
 
-        return intakes.sort((a, b) => a.time.localeCompare(b.time));
+        return intakes.sort((a, b) => a.datetime - b.datetime);
     }
 
-    calculateCaffeineLevel(intakes, targetTime, halfLife) {
+    calculateCaffeineLevel(intakes, targetDatetime, halfLife) {
         let total = 0;
         const lambda = Math.log(2) / halfLife;
 
         intakes.forEach(intake => {
-            const intakeTime = this.timeToHours(intake.time);
-            const timeDiff = targetTime - intakeTime;
+            const timeDiffHours = (targetDatetime - intake.datetime) / (1000 * 60 * 60); // Convert ms to hours
 
-            if (timeDiff >= 0) {
-                total += intake.caffeine * Math.exp(-lambda * timeDiff);
+            if (timeDiffHours >= 0) {
+                total += intake.caffeine * Math.exp(-lambda * timeDiffHours);
             }
         });
 
         return total;
     }
 
-    timeToHours(timeString) {
-        const [hours, minutes] = timeString.split(':').map(Number);
-        return hours + minutes / 60;
-    }
-
     generateTimePoints(intakes) {
         if (intakes.length === 0) return [];
 
-        const intakeTimes = intakes.map(i => this.timeToHours(i.time));
-        const startTime = Math.min(...intakeTimes);
-        let endTime = Math.max(...intakeTimes) + 15;
-        
-        // Handle case where we cross midnight (endTime > 24)
-        // Keep the continuous time scale for proper calculation
+        const startDatetime = new Date(Math.min(...intakes.map(i => i.datetime)));
+        const endDatetime = new Date(Math.max(...intakes.map(i => i.datetime)));
+        endDatetime.setHours(endDatetime.getHours() + 15); // Add 15 hours after last intake
         
         const points = [];
-        for (let t = startTime; t <= endTime; t += 0.25) {
-            points.push(t);
+        const currentTime = new Date(startDatetime);
+        
+        // Generate points every 15 minutes
+        while (currentTime <= endDatetime) {
+            points.push(new Date(currentTime));
+            currentTime.setMinutes(currentTime.getMinutes() + 15);
         }
+        
         return points;
     }
 
-    formatHour(hour) {
-        let h = Math.floor(hour) % 24;
-        if (h < 0) h += 24; // Handle negative hours
+    formatDateTime(datetime) {
+        const date = new Date(datetime);
+        const h = date.getHours();
+        const day = date.getDate();
+        const month = date.getMonth() + 1;
         
         let displayHour, period;
         if (h === 0) {
@@ -561,7 +695,7 @@ class CaffeineCalculator {
             period = 'PM';
         }
         
-        return `${displayHour}${period}`;
+        return `${month}/${day} ${displayHour}${period}`;
     }
 
     updateChart() {
@@ -582,9 +716,9 @@ class CaffeineCalculator {
         }
 
         const timePoints = this.generateTimePoints(intakes);
-        const data = timePoints.map(time => ({
-            time: time,
-            caffeine: this.calculateCaffeineLevel(intakes, time, halfLife)
+        const data = timePoints.map(datetime => ({
+            datetime: datetime,
+            caffeine: this.calculateCaffeineLevel(intakes, datetime, halfLife)
         }));
 
         this.renderChart(data);
@@ -625,8 +759,8 @@ class CaffeineCalculator {
             .attr('transform', `translate(${margin.left},${margin.top})`);
 
         // Scales
-        const xScale = d3.scaleLinear()
-            .domain(d3.extent(data, d => d.time))
+        const xScale = d3.scaleTime()
+            .domain(d3.extent(data, d => d.datetime))
             .range([0, width]);
 
         const yScale = d3.scaleLinear()
@@ -656,7 +790,7 @@ class CaffeineCalculator {
 
         // Line generator
         const line = d3.line()
-            .x(d => xScale(d.time))
+            .x(d => xScale(d.datetime))
             .y(d => yScale(d.caffeine))
             .curve(d3.curveMonotoneX);
 
@@ -666,23 +800,9 @@ class CaffeineCalculator {
             .attr('class', 'caffeine-line')
             .attr('d', line);
 
-        // X-axis with custom ticks
-        const xExtent = d3.extent(data, d => d.time);
-        const timeRange = xExtent[1] - xExtent[0];
-        
-        // Generate hour ticks - keep same density as before
-        const tickInterval = timeRange <= 6 ? 1 : timeRange <= 12 ? 1 : timeRange <= 24 ? 2 : 3;
-        const startHour = Math.floor(xExtent[0]);
-        const endHour = Math.ceil(xExtent[1]);
-        
-        const hourTicks = [];
-        for (let h = startHour; h <= endHour; h += tickInterval) {
-            hourTicks.push(h);
-        }
-
+        // X-axis with datetime formatting
         const xAxis = d3.axisBottom(xScale)
-            .tickValues(hourTicks)
-            .tickFormat(d => this.formatHour(d));
+            .tickFormat(d => this.formatDateTime(d));
 
         g.append('g')
             .attr('class', 'axis')
@@ -756,11 +876,11 @@ class CaffeineCalculator {
 
     handleMouseMove(event, data, xScale, yScale, hoverLine, hoverCircle, infoBox, infoBoxText) {
         const [mouseX] = d3.pointer(event);
-        const time = xScale.invert(mouseX);
+        const datetime = xScale.invert(mouseX);
         
         // Find closest data point
-        const bisect = d3.bisector(d => d.time).left;
-        const index = bisect(data, time, 1);
+        const bisect = d3.bisector(d => d.datetime).left;
+        const index = bisect(data, datetime, 1);
         const d0 = data[index - 1];
         const d1 = data[index];
         
@@ -768,24 +888,24 @@ class CaffeineCalculator {
         let d;
         if (!d0) d = d1;
         else if (!d1) d = d0;
-        else d = time - d0.time > d1.time - time ? d1 : d0;
+        else d = Math.abs(datetime - d0.datetime) < Math.abs(datetime - d1.datetime) ? d0 : d1;
 
         // Only update if we have valid data
         if (!d) return;
 
         // Update hover elements
         hoverLine
-            .attr('x1', xScale(d.time))
-            .attr('x2', xScale(d.time))
+            .attr('x1', xScale(d.datetime))
+            .attr('x2', xScale(d.datetime))
             .style('opacity', 1);
 
         hoverCircle
-            .attr('cx', xScale(d.time))
+            .attr('cx', xScale(d.datetime))
             .attr('cy', yScale(d.caffeine))
             .style('opacity', 1);
 
         // Update fixed info box at top right
-        infoBoxText.text(`${this.formatHour(d.time)} • ${Math.round(d.caffeine)} mg`);
+        infoBoxText.text(`${this.formatDateTime(d.datetime)} • ${Math.round(d.caffeine)} mg`);
         infoBox.style('opacity', 1);
     }
 
